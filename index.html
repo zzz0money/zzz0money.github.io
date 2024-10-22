@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Eizen's Adventure</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            position: relative;
+        }
+        #gameCanvas {
+            display: block;
+        }
+        #joystick {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            width: 100px;
+            height: 100px;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        #stick {
+            width: 50px;
+            height: 50px;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            position: relative;
+            transition: transform 0.1s;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div id="joystick">
+        <div id="stick"></div>
+    </div>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // Set canvas size to the window size
+        canvas.width = window.innerWidth;  
+        canvas.height = window.innerHeight; 
+
+        let player = {
+            x: 50,
+            y: 150,
+            width: 75,
+            height: 75,
+            speed: 3,
+            image: new Image()
+        };
+
+        // Set the image source to your Imgur link for the boy
+        player.image.src = 'https://i.imgur.com/7EwLbJK.png';
+
+        // New image for the girl
+        const girlImage = new Image();
+        girlImage.src = 'https://i.imgur.com/yd6qxxl.png'; // Girl image URL
+
+        // New obstacle image
+        const grassImage = new Image();
+        grassImage.src = 'https://i.imgur.com/cl10A6W.png'; // Obstacle image URL
+
+        // Background image
+        const backgroundImage = new Image();
+        backgroundImage.src = 'https://i.imgur.com/4nBY9YC.jpeg'; // Background image URL
+
+        // Load all images before starting the game
+        let imagesLoaded = 0;
+        const totalImages = 4; // Total images to load
+
+        function imageLoaded() {
+            imagesLoaded++;
+            if (imagesLoaded === totalImages) {
+                update(); // Start the game once all images are loaded
+            }
+        }
+
+        player.image.onload = imageLoaded;
+        girlImage.onload = imageLoaded;
+        grassImage.onload = imageLoaded;
+        backgroundImage.onload = imageLoaded;
+
+        // Add more obstacles closer to the girl
+        const obstacles = [
+            { x: 200, y: 100, width: 60, height: 60 },
+            { x: 400, y: 200, width: 60, height: 60 },
+            { x: 500, y: 250, width: 60, height: 60 },
+            { x: 600, y: 180, width: 60, height: 60 },
+            { x: 300, y: 350, width: 60, height: 60 },
+            { x: 700, y: 300, width: 60, height: 60 },
+            { x: 550, y: 400, width: 60, height: 60 },
+            { x: 800, y: 200, width: 60, height: 60 }
+        ];
+
+        const finishLine = { x: canvas.width - 150, y: 150, width: 60, height: 60 };
+
+        let joystickActive = false;
+        let joystickX = 0;
+        let joystickY = 0;
+
+        // Joystick control functions
+        const joystick = document.getElementById('joystick');
+        const stick = document.getElementById('stick');
+
+        stick.addEventListener('mousedown', startJoystick);
+        stick.addEventListener('touchstart', startJoystick);
+        document.addEventListener('mouseup', stopJoystick);
+        document.addEventListener('touchend', stopJoystick);
+        document.addEventListener('mousemove', moveJoystick);
+        document.addEventListener('touchmove', moveJoystick);
+
+        function startJoystick(event) {
+            joystickActive = true;
+            moveJoystick(event);
+        }
+
+        function stopJoystick() {
+            joystickActive = false;
+            stick.style.transform = 'translate(0, 0)';
+            joystickX = 0;
+            joystickY = 0;
+        }
+
+        function moveJoystick(event) {
+            if (!joystickActive) return;
+
+            const rect = joystick.getBoundingClientRect();
+            const offsetX = event.clientX - rect.left - joystick.offsetWidth / 2;
+            const offsetY = event.clientY - rect.top - joystick.offsetHeight / 2;
+
+            const distance = Math.sqrt(offsetX * offsetX + offsetY * offsetY);
+            const maxDistance = joystick.offsetWidth / 2;
+
+            if (distance > maxDistance) {
+                const angle = Math.atan2(offsetY, offsetX);
+                joystickX = Math.cos(angle) * maxDistance;
+                joystickY = Math.sin(angle) * maxDistance;
+            } else {
+                joystickX = offsetX;
+                joystickY = offsetY;
+            }
+
+            stick.style.transform = `translate(${joystickX}px, ${joystickY}px)`;
+
+            // Move player based on joystick position
+            player.x += (joystickX / maxDistance) * player.speed;
+            player.y += (joystickY / maxDistance) * player.speed;
+
+            if (!checkCollision(player.x, player.y)) {
+                update();
+            } else {
+                // If there's a collision, revert the player's position
+                player.x -= (joystickX / maxDistance) * player.speed;
+                player.y -= (joystickY / maxDistance) * player.speed;
+            }
+        }
+
+        function drawBackground() {
+            ctx.drawImage(backgroundImage, 0, 0, canvas.width, canvas.height); // Draw background
+        }
+
+        function drawPlayer() {
+            ctx.drawImage(player.image, player.x, player.y, player.width, player.height);
+            ctx.font = '20px Arial'; // Set font style
+            ctx.fillStyle = 'white';  // Set text color
+            ctx.fillText('HailEizen', player.x + 10, player.y - 10); // Draw player name
+        }
+
+        function drawObstacles() {
+            obstacles.forEach(obstacle => {
+                ctx.drawImage(grassImage, obstacle.x, obstacle.y, obstacle.width, obstacle.height); // Draw obstacle image
+            });
+        }
+
+        function drawFinishLine() {
+            ctx.drawImage(girlImage, finishLine.x, finishLine.y, finishLine.width, finishLine.height);
+            ctx.font = '20px Arial'; // Set font style
+            ctx.fillStyle = 'white';  // Set text color
+            ctx.fillText('HailTati', finishLine.x + 10, finishLine.y - 10); // Draw girl name
+        }
+
+        function checkCollision(x, y) {
+            for (const obstacle of obstacles) {
+                if (
+                    x < obstacle.x + obstacle.width &&
+                    x + player.width > obstacle.x &&
+                    y < obstacle.y + obstacle.height &&
+                    y + player.height > obstacle.y
+                ) {
+                    return true; // Collision detected
+                }
+            }
+            return false; // No collision
+        }
+
+        function checkFinish() {
+            if (
+                player.x < finishLine.x + finishLine.width &&
+                player.x + player.width > finishLine.x &&
+                player.y < finishLine.y + finishLine.height &&
+                player.y + player.height > finishLine.y
+            ) {
+                alert('You reached your dream girl, again! Don’t let her go this time');
+                resetGame();
+            }
+        }
+
+        function resetGame() {
+            player.x = 50;
+            player.y = 150;
+        }
+
+        function update() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBackground(); // Draw the background
+            drawObstacles();
+            drawFinishLine();
+            drawPlayer();
+            checkFinish();
+        }
+
+        // Resize canvas when window is resized
+        window.addEventListener('resize', () => {
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+            update();
+        });
+    </script>
+</body>
+</html>
